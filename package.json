@@ -1,0 +1,5 @@
+{
+  "name": "freight-rate-import-system",
+  "private": true,
+  "workspaces": ["frontend", "backend"]
+}
