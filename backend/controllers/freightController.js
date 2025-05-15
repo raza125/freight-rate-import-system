@@ -1,7 +1,7 @@
-const pool = require("../database/db");
+// const pool = require("../database/db");
 const { v4: uuidv4 } = require('uuid');
 
-exports.importFreightData = async (req, res) => {
+exports.importFreightData = async (req, res, pool, next) => {
   const { rows, mapping } = req.body;
 
   if (!rows || !mapping) {
@@ -18,6 +18,8 @@ exports.importFreightData = async (req, res) => {
   );
 
   try {
+    const versionQuery = await pool.query('SELECT MAX(version_number) AS max_version FROM freight_rates');
+    const newVersion = (versionQuery.rows[0].max_version || 0) + 1;
     const insertedRows = [];
 
     for (const row of rows) {
@@ -42,11 +44,17 @@ exports.importFreightData = async (req, res) => {
 
           await pool.query(
             `INSERT INTO freight_rates (
-              shipment_id, origin_country, destination_country,
-              shipper_name, agent_name, proof_of_delivery,
-              container_20gp, container_40gp, shipment_datetime,
-              created_at
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, now())
+              shipment_id, 
+              origin_country, 
+              destination_country,
+              shipper_name, 
+              agent_name, 
+              proof_of_delivery,
+              container_20gp, 
+              container_40gp, 
+              shipment_datetime,
+              version_number
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, $10)
             ON CONFLICT (shipment_id) DO UPDATE SET
               origin_country = EXCLUDED.origin_country,
               destination_country = EXCLUDED.destination_country,
@@ -66,6 +74,7 @@ exports.importFreightData = async (req, res) => {
               container_20gp,
               container_40gp,
               shipment_datetime,
+              newVersion
             ]
           );          
 
@@ -79,20 +88,17 @@ exports.importFreightData = async (req, res) => {
         container_20gp,
         container_40gp,
         shipment_datetime,
+        version: newVersion
       });
     }
 
     res.json({
       success: true,
       message: "Freight data imported successfully.",
+      version: newVersion,
       data: insertedRows,
     });
   } catch (error) {
-    console.error("Error importing data:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error processing freight data.",
-      error: error.message,
-    });
+    next(error);
   }
 };

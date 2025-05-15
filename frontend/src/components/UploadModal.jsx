@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { CloudArrowUpIcon } from "@heroicons/react/24/outline";
+// import { CloudArrowUpIcon } from "@heroicons/react/24/outline";
 import Papa from "papaparse";
 import ColumnMapper from "./ColumnMapper";
 import * as XLSX from "xlsx";
@@ -12,6 +12,8 @@ export default function UploadModal({ onClose, onSuccess }) {
   const [columnMapping, setColumnMapping] = useState(null);
   const [toast, setToast] = useState(null);
   const fileInputRef = useRef(null);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showResults, setShowResults] = useState([]);
 
   const handleDrop = (e) => {
     e.preventDefault();
@@ -73,6 +75,26 @@ export default function UploadModal({ onClose, onSuccess }) {
     }
   };
 
+  const handleSearch = async () => {
+    try {
+      const res = await fetch(`http://localhost:3001/api/freight/search?type=40gp`);
+      const result =  await res.json();
+      if(result.success) {
+        setShowResults(result.data)
+      } else {
+        setToast({
+        message: "No Results",
+        type: "error",
+      });
+      }
+    } catch (err) {
+      setToast({
+        message: err,
+        type: "error",
+      });
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div
@@ -91,7 +113,6 @@ export default function UploadModal({ onClose, onSuccess }) {
           onDrop={handleDrop}
           onClick={() => fileInputRef.current.click()}
         >
-          <CloudArrowUpIcon className="mx-auto h-8 w-8 text-blue-500 mb-2" />
           <p className="text-sm font-semibold mb-1">
             Click or drag file to this area to upload
           </p>
@@ -133,11 +154,33 @@ export default function UploadModal({ onClose, onSuccess }) {
         </div>
 
         {fileHeaders.length > 0 && sampleRows.length > 0 && (
+          <>
+          {showSearch && 
+          <div className="mt-6 bg-white p-4 rounded shadow">
+            {/* <h3 className="text-lg font-semibold mb-2">Search</h3> */}
+            <div className="flex gap-4">
+              <button className="bg-blue-600 text-white px-4 py-1 rounded" onClick={() => handleSearch()}>Search</button>
+            </div>
+          </div>
+          }
+          {showResults.length > 0 && 
+          <div className="mt-3 text-sm text-gray-700">
+            {showResults.map((element, i) => {
+              return (
+              <li key={i}>
+                {element.origin_country} - {element.destination_country} - ${element.rate}
+              </li>
+              )
+            })}
+          </div>}
+              {/* Cheapest from 
+              <b>{element.origin_country}</b> to <b>{element.destination_country}</b>: ${element.rate} */}
           <ColumnMapper
             headers={fileHeaders}
             sampleRows={sampleRows}
             onMappingChange={(latestMapping) => setColumnMapping(latestMapping)}
           />
+          </>
         )}
 
         <div className="m-5 flex justify-end space-x-2">
@@ -150,13 +193,13 @@ export default function UploadModal({ onClose, onSuccess }) {
           <button
             className="px-4 py-1 bg-black text-white rounded hover:opacity-90 text-sm cursor-pointer"
             onClick={async () => {
-              if (!columnMapping || Object.keys(columnMapping).length === 0) {
-                setToast({
-                  message: "Please map at least one column before processing.",
-                  type: "error",
-                });
-                return;
-              }
+              // if (!columnMapping || Object.keys(columnMapping).length === 0) {
+              //   setToast({
+              //     message: "Please map at least one column before processing.",
+              //     type: "error",
+              //   });
+              //   return;
+              // }
 
               const filteredMapping = Object.fromEntries(
                 Object.entries(columnMapping).filter(
@@ -193,8 +236,9 @@ export default function UploadModal({ onClose, onSuccess }) {
                     message: `Successfully imported ${result.data.length} row(s).`,
                     type: "success",
                   });
-                  onSuccess();
-                  onClose();
+                  // onSuccess();
+                  // onClose();
+                  setShowSearch(true);
                 } else {
                   setToast({
                     message: "Failed to import freight data.",
